@@ -22,6 +22,20 @@ else
   GREPAOPTION=
 fi
 
+function test_compcov_binary_functionality () {
+  RUN="../afl-showmap -o /dev/null -- $1"
+  $RUN 'LIBTOKENCAP' | grep 'your string was LIBTOKENCAP' \
+    && $RUN 'BUGMENOT' | grep 'your string was BUGMENOT' \
+    && $RUN 'BANANA' | grep 'your string started with BAN' \
+    && $RUN 'APRI' | grep 'your string was APRI' \
+    && $RUN 'kiWI' | grep 'your string was Kiwi' \
+    && $RUN 'Avocado' | grep 'your string was avocado' \
+    && $RUN 'GRAX' 3 | grep 'your string was a prefix of Grapes' \
+    && $RUN 'LOCALVARIABLE' | grep 'local var memcmp works!' \
+    && $RUN 'abc' | grep 'short local var memcmp works!' \
+    && $RUN 'GLOBALVARIABLE' | grep 'global var memcmp works!'
+} > /dev/null
+
 ECHO="printf %b\\n"
 $ECHO \\101 2>&1 | grep -qE '^A' || {
   ECHO=
@@ -258,7 +272,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$RED[!] llvm_mode failed"
     CODE=1
   }
-  test -e test-compcov.harden && {
+  test -e test-compcov.harden && test_compcov_binary_functionality ./test-compcov.harden && {
     grep -Eq$GREPAOPTION 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] llvm_mode hardened mode succeeded and is working"
     } || {
@@ -358,8 +372,8 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     INCOMPLETE=1
   }
   AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
-  test -e test-compcov.compcov && {
-    grep --binary-files=text -Eq " [ 12][0-9][0-9] location| [3-9][0-9] location" test.out && {
+  test -e test-compcov.compcov && test_compcov_binary_functionality ./test-compcov.compcov && {
+    grep --binary-files=text -Eq " [ 123][0-9][0-9] location| [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode laf-intel/compcov feature failed"
@@ -372,7 +386,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   rm -f test-compcov.compcov test.out
   echo foobar.c > whitelist.txt
   AFL_DEBUG=1 AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-fast -o test-compcov test-compcov.c > test.out 2>&1
-  test -e test-compcov && {
+  test -e test-compcov && test_compcov_binary_functionality ./test-compcov && {
     grep -q "No instrumentation targets found" test.out && {
       $ECHO "$GREEN[+] llvm_mode whitelist feature works correctly"
     } || {
@@ -511,7 +525,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
     CODE=1
   }
 
-  test -e test-compcov.harden.gccpi && {
+  test -e test-compcov.harden.gccpi && test_compcov_binary_functionality ./test-compcov.harden.gccpi && {
     grep -Eq$GREPAOPTION 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden.gccpi > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] gcc_plugin hardened mode succeeded and is working"
     } || {
@@ -556,7 +570,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   # now for the special gcc_plugin things
   echo foobar.c > whitelist.txt
   AFL_GCC_WHITELIST=whitelist.txt ../afl-gcc-fast -o test-compcov test-compcov.c > /dev/null 2>&1
-  test -e test-compcov && {
+  test -e test-compcov && test_compcov_binary_functionality ./test-compcov && {
     echo 1 | ../afl-showmap -m ${MEM_LIMIT} -o - -r -- ./test-compcov 2>&1 | grep -q "Captured 1 tuples" && {
       $ECHO "$GREEN[+] gcc_plugin whitelist feature works correctly"
     } || {
